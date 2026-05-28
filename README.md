@@ -1,26 +1,23 @@
-# 🐱🐶 CNN Cats vs Dogs — From Scratch & Transfer Learning
+#  CNN Cats vs Dogs — From Scratch & Transfer Learning
 
-Comparaison d'un **CNN entraîné from scratch** et d'un modèle en **transfert learning (ResNet-18)** sur la classification binaire chats/chiens.
+**Auteur** : Oumar Camara  
+**Cours** : DV Deep Learning  
 
----
 
-## Objectif
-
-| | Expérience A | Expérience B |
-|---|---|---|
-| Architecture | CNN from scratch (3 blocs Conv) | ResNet-18 pré-entraîné |
-| Régularisation | Dropout + Batch Normalization | Dropout + Batch Normalization |
-| Optimiseurs testés | SGD, Adam | SGD, Adam |
-| Scheduler | StepLR | CosineAnnealingLR |
+Classification binaire chats/chiens en comparant un **CNN entraîné from scratch** et un modèle en **transfert learning (ResNet-18 pré-entraîné sur ImageNet)**.
 
 ---
 
 ## Environnement
 
-### Prérequis
+### Configuration utilisée
 
-- Python 3.8+
-- GPU recommandé (Google Colab avec GPU activé)
+| | |
+|---|---|
+| Framework | PyTorch 2.10.0+cu128 |
+| GPU | NVIDIA T4 (Google Colab) |
+| CUDA | disponible |
+| Python | 3.10 |
 
 ### Installation
 
@@ -46,101 +43,126 @@ wget https://s3.amazonaws.com/content.udacity-data.com/nd089/Cat_Dog_data.zip
 unzip Cat_Dog_data.zip
 ```
 
-Placez ensuite le dossier dans votre Google Drive à l'emplacement suivant :
+Placez le dossier dans votre Google Drive à l'emplacement suivant :
 
 ```
 MyDrive/
-└── cnn_cat_dog_image_classification/
-    ├── Cat_Dog_data/
-    │   ├── train/
-    │   │   ├── cat/
-    │   │   └── dog/
-    │   └── test/
-    │       ├── cat/
-    │       └── dog/
-    └── TP_CNN_CatsVsDogs.ipynb
+└── TP_Deep_Learning/
+    └── cnn_transfert_learning/
+        ├── Cat_Dog_data/
+        │   ├── train/
+        │   │   ├── cat/    (images d'entraînement)
+        │   │   └── dog/
+        │   └── test/
+        │       ├── cat/    (images de test)
+        │       └── dog/
+        ├── checkpoints/    (créé automatiquement, non versionné)
+        └── TP_CNN_CatsVsDogs.ipynb
 ```
 
-> Le notebook monte automatiquement Google Drive et pointe vers ce chemin. Adaptez `BASE_DIR` dans la cellule de configuration si votre structure est différente.
+> **Dataset** : 22 618 images d'entraînement · 2 500 images de test · 2 classes : `cat`, `dog`
 
 ---
 
 ## Structure du dépôt
 
 ```
-cnn-catsdogs-<NomPrenom>/
-├── TP_CNN_CatsVsDogs.ipynb   # Notebook principal
-├── requirements.txt           # Dépendances Python
-├── environment.yml            # Environnement conda (alternative)
+cnn-catsdogs-OumarCamara/
+├── TP_CNN_CatsVsDogs.ipynb   # Notebook principal (15 sections)
+├── requirements.txt
+├── environment.yml
 ├── .gitignore
-├── README.md
-└── LICENSE
+└── README.md
 ```
 
 ---
 
 ## Lancer l'entraînement
 
-Ouvrez `TP_CNN_CatsVsDogs.ipynb` dans Google Colab avec **GPU activé** (Exécution → Modifier le type d'exécution → GPU).
+Ouvrez `TP_CNN_CatsVsDogs.ipynb` dans **Google Colab** avec le GPU activé :  
+`Exécution → Modifier le type d'exécution → Accélérateur matériel → GPU (T4)`
 
-### Hyperparamètres principaux
+### Hyperparamètres globaux
 
-| Paramètre | Valeur par défaut | Description |
+| Paramètre | Valeur | Description |
 |---|---|---|
-| `IMG_SIZE` | 64 | Taille des images en entrée |
+| `IMG_SIZE` | 224 | Taille des images (standard ResNet) |
 | `BATCH_SIZE` | 64 | Taille des lots |
-| `EPOCHS_A` | 10 | Epochs pour le CNN from scratch |
-| `EPOCHS_B` | 15 | Epochs pour le transfert learning |
-| `VAL_SPLIT` | 0.15 | Part du train utilisée pour la validation |
-| `SEED` | 42 | Seed pour la reproductibilité |
+| `NUM_WORKERS` | 2 | Workers DataLoader |
+| `SEED` | 42 | Seed de reproductibilité |
+| `MEAN` | [0.485, 0.456, 0.406] | Normalisation ImageNet |
+| `STD` | [0.229, 0.224, 0.225] | Normalisation ImageNet |
 
 ### Expérience A — CNN from scratch
 
-Modifiez dans la cellule des hyperparamètres :
+Architecture : **3 blocs convolutifs** (Conv2d → BatchNorm2d → ReLU → MaxPool2d → Dropout2d) + classifieur FC.
 
 ```python
-EPOCHS_A  = 10       # nombre d'epochs
-LR_A_SGD  = 0.01     # learning rate SGD
-LR_A_ADAM = 1e-3     # learning rate Adam
+EPOCHS_A  = 2          # epochs (augmenter pour de meilleurs résultats)
+LR_A_SGD  = 0.01       # learning rate SGD
+LR_A_ADAM = 1e-3       # learning rate Adam
 BATCH_SIZE = 64
-IMG_SIZE   = 64      # réduire pour accélérer (min 32)
+IMG_SIZE   = 224
 ```
 
-Le modèle utilise :
-- 3 blocs convolutifs (Conv → BatchNorm → ReLU → MaxPool → Dropout)
-- Classifieur FC avec Dropout=0.5
-- Scheduler : StepLR (÷10 tous les 7 epochs)
+- **Batch Normalization** : après chaque convolution, stabilise les activations
+- **Dropout conv** : p=0.25 par bloc
+- **Dropout FC** : p=0.5 dans le classifieur
+- **Scheduler** : StepLR (÷10 tous les 7 epochs)
 
-### Expérience B — Transfert Learning (ResNet-18)
+### Expérience B — Transfer Learning (ResNet-18)
 
 ```python
-EPOCHS_B   = 15
+EPOCHS_B   = 5
 LR_B_SGD   = 5e-3
-LR_B_ADAM  = 1e-4    # LR faible car poids pré-entraînés
-IMG_SIZE   = 224     # garder 224 pour ResNet-18
+LR_B_ADAM  = 1e-4      # LR faible car poids pré-entraînés
+IMG_SIZE   = 224       # obligatoire pour ResNet-18
 ```
 
-Le modèle utilise :
-- ResNet-18 pré-entraîné sur ImageNet
-- Tête FC remplacée : `Linear(512 → 2)` + Dropout=0.4
-- Scheduler : CosineAnnealingLR
+- **Base** : ResNet-18 pré-entraîné sur ImageNet (11 177 538 paramètres)
+- **Tête remplacée** : `Dropout(0.4)` + `Linear(512 → 2)`
+- **Scheduler** : CosineAnnealingLR (descente progressive sur toute la durée)
 
 ---
 
-## Évaluation & rechargement du modèle
+## Évaluation & Rechargement du modèle
 
 Les checkpoints sont sauvegardés automatiquement dans `checkpoints/` (non poussés sur GitHub).
 
-Pour recharger et évaluer le meilleur modèle :
+```
+checkpoints/
+├── scratch_sgd_best.pth
+├── scratch_adam_best.pth
+├── transfer_sgd_best.pth
+├── transfer_adam_best.pth
+└── best_model_final.pth    ← meilleur modèle toutes expériences confondues
+```
+
+Pour recharger et évaluer :
 
 ```python
-# Rechargement depuis le disque
+import torch
+from torchvision import models
+import torch.nn as nn
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Reconstruction de l'architecture
+def build_transfer_model(num_classes=2, dropout_fc=0.4):
+    model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    model.fc = nn.Sequential(
+        nn.Dropout(dropout_fc),
+        nn.Linear(512, num_classes)
+    )
+    return model
+
+# Rechargement
 checkpoint   = torch.load('checkpoints/best_model_final.pth', map_location=device)
-loaded_model = build_transfer_model(num_classes=2).to(device)
+loaded_model = build_transfer_model().to(device)
 loaded_model.load_state_dict(checkpoint['model_state_dict'])
 loaded_model.eval()
 
-# Évaluation sur le jeu de test
+# Évaluation
 loss, acc, precision, recall = evaluate(loaded_model, testloader)
 print(f'Acc={acc:.4f}  Prec={precision:.4f}  Rec={recall:.4f}')
 ```
@@ -149,60 +171,62 @@ print(f'Acc={acc:.4f}  Prec={precision:.4f}  Rec={recall:.4f}')
 
 ## Résultats
 
-### Tableau comparatif (exemple après 10 epochs, IMG_SIZE=64)
+### Tableau comparatif (résultats réels obtenus)
 
-| Modèle | Optimiseur | Val Accuracy | Precision | Recall | F1 |
+| Modèle | Optimiseur | Epochs | Val Accuracy | Precision | Recall |
 |---|---|---|---|---|---|
-| CNN scratch | SGD | ~0.72 | ~0.74 | ~0.68 | ~0.71 |
-| CNN scratch | Adam | ~0.75 | ~0.76 | ~0.72 | ~0.74 |
-| ResNet-18 | SGD | ~0.88 | ~0.89 | ~0.87 | ~0.88 |
-| ResNet-18 | Adam | ~0.91 | ~0.92 | ~0.90 | ~0.91 |
+| CNN scratch | SGD | 2 | 0.638 | 0.722 | 0.450 |
+| CNN scratch | Adam | 2 | **0.680** | 0.754 | 0.534 |
+| ResNet-18 | SGD | 5 | 0.989 | 0.990 | 0.989 |
+| ResNet-18 | Adam | 5 | **0.990** | 0.994 | 0.986 |
 
-> Les valeurs exactes varient selon le nombre d'epochs et le matériel utilisé. Vos courbes générées dans le notebook font foi.
+**Meilleur modèle** : ResNet-18 + Adam → `Acc=0.9896  Prec=0.9935  Rec=0.9856` (test final après rechargement)
 
-### Analyse
+**Matrice de confusion (meilleur modèle — Transfer Adam)**
 
-**Convergence** : le transfert learning converge en 3 à 5 epochs là où le CNN from scratch nécessite 15 à 20 epochs pour atteindre un résultat équivalent. Les poids ImageNet fournissent des features génériques (bords, textures, formes) immédiatement exploitables.
+|  | Prédit chat | Prédit chien |
+|---|---|---|
+| **Réel chat** | — | 8 faux positifs |
+| **Réel chien** | 18 faux négatifs | — |
 
-**Impact des optimiseurs** : Adam converge plus vite en début d'entraînement grâce à son adaptation du learning rate par paramètre. SGD avec momentum peut toutefois atteindre de meilleures performances finales avec un bon scheduler. Le CosineAnnealingLR lisse la descente et évite les oscillations en fin d'entraînement.
+### Analyse comparative
 
-**Rôle de Dropout et BatchNorm** : la Batch Normalization stabilise les activations et accélère la convergence en normalisant les entrées de chaque couche. Le Dropout (p=0.5 en FC, p=0.25 en conv) force le réseau à ne pas sur-spécialiser ses neurones, réduisant significativement le sur-apprentissage visible sur les courbes train/val.
+**Convergence** : le transfert learning atteint 98% d'accuracy dès la 1ère epoch, là où le CNN from scratch plafonne à 64% après 2 epochs. Les features ImageNet (bords, textures, formes) sont immédiatement exploitables pour distinguer chats et chiens, tâche très proche des données d'ImageNet.
+
+**Impact des optimiseurs** : Adam converge plus vite que SGD sur les deux expériences. Pour le CNN scratch, l'écart est net dès la 1ère epoch (acc 0.577 SGD vs 0.577 Adam à l'epoch 1, mais 0.638 vs 0.680 à l'epoch 2). Pour le transfer learning, les deux optimiseurs sont quasi équivalents — la qualité des poids pré-entraînés efface les différences d'optimiseur.
+
+**Dropout + BatchNorm** : la Batch Normalization stabilise l'entraînement du CNN scratch et évite les explosions de gradient fréquentes sans elle. Le Dropout réduit le sur-apprentissage visible par l'écart train/val : val_loss < train_loss sur certaines epochs confirme que le modèle généralise.
 
 ### Limites & pistes d'amélioration
 
-- Tester des architectures plus profondes (ResNet-50, EfficientNet-B0) pour potentiellement gagner 2 à 3 points d'accuracy.
-- Fine-tuning progressif : geler d'abord le backbone ResNet, entraîner uniquement la tête, puis dégeler par étapes avec un LR décroissant.
-- Augmentation plus agressive : mixup, cutout, ou AutoAugment.
-- Déséquilibre des classes : vérifier si le dataset est équilibré ; si non, utiliser un `WeightedRandomSampler`.
+- Le CNN scratch n'a tourné que 2 epochs — il faut 15-20 epochs pour atteindre 75-80% d'accuracy.
+- Fine-tuning progressif pour ResNet-18 : geler le backbone les 2 premières epochs puis dégeler avec un LR 10× plus faible.
+- Tester EfficientNet-B0 ou MobileNetV3 pour un meilleur compromis vitesse/performance.
+- Les 18 faux négatifs (chiens ratés) suggèrent un léger biais vers la classe `cat` — un `WeightedRandomSampler` pourrait corriger ça.
 
 ---
 
 ## GPU
 
-Le notebook vérifie automatiquement la disponibilité du GPU :
+Le notebook détecte automatiquement le GPU :
 
 ```python
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print('Device utilisé :', device)
+# → Device utilisé : cuda  (T4 sur Colab)
 ```
 
-Sur Google Colab : **Exécution → Modifier le type d'exécution → Accélérateur matériel → GPU**.
+Sur Google Colab : **Exécution → Modifier le type d'exécution → GPU**.
 
 ---
 
 ## Reproductibilité
 
-Le seed est fixé en début de notebook :
-
 ```python
 SEED = 42
-set_seed(SEED)  # fixe random, numpy, torch, cudnn
+set_seed(SEED)  # fixe random, numpy, torch, cudnn.deterministic=True
 ```
 
----
 
-## Remise
 
-- Poussez votre code sur GitHub **sans les données ni les modèles** (voir `.gitignore`).
-- Envoyez le lien du dépôt à **diallomous@gmail.com**
-- **Date limite : jeudi 04 juin 2026 avant 23h00 (Africa/Dakar)**
+
+
