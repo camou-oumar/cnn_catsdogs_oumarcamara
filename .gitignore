@@ -1,0 +1,27 @@
+# Données
+data/
+Cat_Dog_data/
+
+# Modèles sauvegardés
+*.pt
+*.pth
+checkpoints/
+
+# Logs TensorBoard / W&B
+runs/
+wandb/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+venv/
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+__MACOSX/
